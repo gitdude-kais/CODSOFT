@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #22222e;
+      --border: rgba(255,255,255,0.07);
+      --accent: #7c6bff;
+      --accent-hover: #9585ff;
+      --text: #e8e6ff;
+      --text-muted: rgba(232,230,255,0.38);
+      --display-bg: #080810;
+      --btn-digit: #1e1e2a;
+      --btn-digit-hover: #26263a;
+      --btn-func: #18182a;
+      --btn-func-hover: #20203a;
+      --radius: 14px;
+      --gap: 10px;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      overflow: hidden;
+    }
+
+    /* Background grid lines */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,107,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,107,255,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Glow blob */
+    body::after {
+      content: '';
+      position: fixed;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(124,107,255,0.12) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .calculator {
+      width: 320px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(124,107,255,0.08),
+        0 32px 80px rgba(0,0,0,0.55),
+        0 4px 20px rgba(124,107,255,0.06);
+    }
+
+    /* ── Display ── */
+    .display {
+      background: var(--display-bg);
+      padding: 24px 22px 18px;
+      min-height: 118px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: flex-end;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .display .history {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+      min-height: 18px;
+      text-align: right;
+      word-break: break-all;
+      transition: opacity 0.2s;
+    }
+
+    .display .current {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 40px;
+      font-weight: 400;
+      color: var(--text);
+      text-align: right;
+      word-break: break-all;
+      line-height: 1.1;
+      transition: font-size 0.12s ease;
+    }
+
+    .display .current.md { font-size: 30px; }
+    .display .current.sm { font-size: 22px; }
+
+    /* blink cursor */
+    .display .current::after {
+      content: '|';
+      opacity: 1;
+      animation: blink 1s step-end infinite;
+      color: var(--accent);
+      margin-left: 2px;
+    }
+    .display .current.idle::after { opacity: 0; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; } 50% { opacity: 0; }
+    }
+
+    /* error shake */
+    .display.shake { animation: shake 0.35s ease; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-6px); }
+      40%      { transform: translateX(6px); }
+      60%      { transform: translateX(-4px); }
+      80%      { transform: translateX(4px); }
+    }
+
+    /* ── Keypad ── */
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gap);
+      padding: var(--gap);
+      background: var(--surface2);
+    }
+
+    .btn {
+      all: unset;
+      cursor: pointer;
+      height: 68px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--btn-digit);
+      border: 1px solid var(--border);
+      transition: background 0.1s, transform 0.08s, border-color 0.1s;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0);
+      transition: background 0.1s;
+    }
+
+    .btn:hover { background: var(--btn-digit-hover); border-color: rgba(255,255,255,0.12); }
+    .btn:active { transform: scale(0.94); }
+    .btn:active::before { background: rgba(255,255,255,0.04); }
+
+    /* Function buttons (AC, +/−, %) */
+    .btn.func {
+      background: var(--btn-func);
+      color: rgba(232,230,255,0.7);
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .btn.func:hover { background: var(--btn-func-hover); }
+
+    /* Operator buttons */
+    .btn.op {
+      background: rgba(124,107,255,0.15);
+      color: var(--accent);
+      font-size: 22px;
+      border-color: rgba(124,107,255,0.2);
+    }
+    .btn.op:hover { background: rgba(124,107,255,0.25); border-color: rgba(124,107,255,0.35); }
+
+    /* Active operator highlight */
+    .btn.op.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* Equals button */
+    .btn.equals {
+      background: var(--accent);
+      color: #fff;
+      font-size: 24px;
+      border-color: transparent;
+      box-shadow: 0 4px 20px rgba(124,107,255,0.35);
+    }
+    .btn.equals:hover { background: var(--accent-hover); box-shadow: 0 4px 28px rgba(124,107,255,0.5); }
+
+    /* Zero spans 2 columns */
+    .btn.zero {
+      grid-column: span 2;
+      justify-content: flex-start;
+      padding-left: 26px;
+    }
+
+    /* Ripple effect */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      transform: scale(0);
+      animation: ripple-anim 0.45s linear;
+      pointer-events: none;
+    }
+    @keyframes ripple-anim {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    .footer {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="wrapper">
+    <span class="label">Calculator</span>
+
+    <div class="calculator" id="calc">
+      <div class="display" id="display">
+        <div class="history" id="history"></div>
+        <div class="current idle" id="current">0</div>
+      </div>
+
+      <div class="keypad" id="keypad">
+        <!-- Row 1 -->
+        <button class="btn func" data-action="clear">AC</button>
+        <button class="btn func" data-action="sign">+/−</button>
+        <button class="btn func" data-action="percent">%</button>
+        <button class="btn op"   data-action="op" data-op="÷">÷</button>
+        <!-- Row 2 -->
+        <button class="btn" data-action="digit" data-digit="7">7</button>
+        <button class="btn" data-action="digit" data-digit="8">8</button>
+        <button class="btn" data-action="digit" data-digit="9">9</button>
+        <button class="btn op" data-action="op" data-op="×">×</button>
+        <!-- Row 3 -->
+        <button class="btn" data-action="digit" data-digit="4">4</button>
+        <button class="btn" data-action="digit" data-digit="5">5</button>
+        <button class="btn" data-action="digit" data-digit="6">6</button>
+        <button class="btn op" data-action="op" data-op="−">−</button>
+        <!-- Row 4 -->
+        <button class="btn" data-action="digit" data-digit="1">1</button>
+        <button class="btn" data-action="digit" data-digit="2">2</button>
+        <button class="btn" data-action="digit" data-digit="3">3</button>
+        <button class="btn op" data-action="op" data-op="+">+</button>
+        <!-- Row 5 -->
+        <button class="btn zero" data-action="digit" data-digit="0">0</button>
+        <button class="btn" data-action="decimal">.</button>
+        <button class="btn equals" data-action="equals">=</button>
+      </div>
+    </div>
+
+    <span class="footer">keyboard supported &nbsp;·&nbsp; esc to clear</span>
+  </div>
+
+  <script>
+    const currentEl  = document.getElementById('current');
+    const historyEl  = document.getElementById('history');
+    const displayEl  = document.getElementById('display');
+
+    // ── State ──────────────────────────────────────────────────
+    let state = {
+      current:     '0',
+      stored:      null,
+      op:          null,
+      justEvaled:  false,
+      expr:        ''
+    };
+
+    // ── Helpers ────────────────────────────────────────────────
+    function formatNum(n) {
+      if (!isFinite(n)) return 'Error';
+      // Use toPrecision to avoid float drift, then strip trailing zeros
+      let s = parseFloat(n.toPrecision(12)).toString();
+      return s;
+    }
+
+    function applyOp(a, op, b) {
+      const fa = parseFloat(a), fb = parseFloat(b);
+      if (op === '÷') { if (fb === 0) return null; return fa / fb; }
+      if (op === '×') return fa * fb;
+      if (op === '−') return fa - fb;
+      if (op === '+') return fa + fb;
+      return null;
+    }
+
+    function updateDisplay() {
+      // Resize font
+      currentEl.classList.remove('md', 'sm');
+      const len = state.current.length;
+      if (len > 14)      currentEl.classList.add('sm');
+      else if (len > 9)  currentEl.classList.add('md');
+
+      currentEl.textContent = state.current;
+      historyEl.textContent  = state.expr;
+
+      // Cursor blink only when "actively typing"
+      currentEl.classList.toggle('idle', state.justEvaled || state.op !== null);
+    }
+
+    function highlightOp() {
+      document.querySelectorAll('.btn.op').forEach(b => {
+        b.classList.toggle('active', b.dataset.op === state.op && !state.justEvaled && state.current === '0');
+      });
+    }
+
+    function shake() {
+      displayEl.classList.remove('shake');
+      void displayEl.offsetWidth; // reflow
+      displayEl.classList.add('shake');
+    }
+
+    // ── Ripple ─────────────────────────────────────────────────
+    function addRipple(btn, e) {
+      const rect   = btn.getBoundingClientRect();
+      const size   = Math.max(rect.width, rect.height);
+      const x      = e.clientX - rect.left - size / 2;
+      const y      = e.clientY - rect.top  - size / 2;
+      const rip    = document.createElement('span');
+      rip.className = 'ripple';
+      rip.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px`;
+      btn.appendChild(rip);
+      rip.addEventListener('animationend', () => rip.remove());
+    }
+
+    // ── Actions ────────────────────────────────────────────────
+    function handleDigit(d) {
+      if (state.justEvaled) {
+        state.current = d === '0' ? '0' : d;
+        state.expr = '';
+        state.justEvaled = false;
+        return;
+      }
+      if (state.op && state.current === '0' && d !== '0') {
+        state.current = d; return;
+      }
+      if (state.current === '0' && d !== '0') { state.current = d; return; }
+      if (state.current.length >= 16) return;
+      if (state.current === '0' && d === '0') return;
+      state.current += d;
+    }
+
+    function handleDecimal() {
+      if (state.justEvaled) { state.current = '0.'; state.expr = ''; state.justEvaled = false; return; }
+      if (!state.current.includes('.')) state.current += '.';
+    }
+
+    function handleOp(op) {
+      // Chain operations
+      if (state.op && state.stored !== null && !state.justEvaled) {
+        const res = applyOp(state.stored, state.op, state.current);
+        if (res === null) { state.current = 'Error'; shake(); state.op = null; state.stored = null; state.expr = ''; state.justEvaled = true; return; }
+        state.stored  = formatNum(res);
+        state.current = state.stored;
+      } else {
+        state.stored = state.current;
+      }
+      state.op         = op;
+      state.expr       = state.stored + ' ' + op;
+      state.justEvaled = false;
+      state.current    = '0';
+    }
+
+    function handleEquals() {
+      if (!state.op || state.stored === null) return;
+      const res = applyOp(state.stored, state.op, state.current);
+      if (res === null) {
+        state.current = 'Error'; shake();
+      } else {
+        state.expr    = state.stored + ' ' + state.op + ' ' + state.current + ' =';
+        state.current = formatNum(res);
+      }
+      state.stored     = null;
+      state.op         = null;
+      state.justEvaled = true;
+    }
+
+    function handleClear() {
+      state = { current: '0', stored: null, op: null, justEvaled: false, expr: '' };
+    }
+
+    function handleSign() {
+      if (state.current === '0' || state.current === 'Error') return;
+      state.current = state.current.startsWith('-') ? state.current.slice(1) : '-' + state.current;
+    }
+
+    function handlePercent() {
+      const n = parseFloat(state.current);
+      if (isNaN(n)) return;
+      state.current = formatNum(n / 100);
+    }
+
+    // ── Event wiring ───────────────────────────────────────────
+    document.getElementById('keypad').addEventListener('click', e => {
+      const btn = e.target.closest('.btn');
+      if (!btn) return;
+
+      addRipple(btn, e);
+
+      const action = btn.dataset.action;
+      if      (action === 'digit')   handleDigit(btn.dataset.digit);
+      else if (action === 'decimal') handleDecimal();
+      else if (action === 'op')      handleOp(btn.dataset.op);
+      else if (action === 'equals')  handleEquals();
+      else if (action === 'clear')   handleClear();
+      else if (action === 'sign')    handleSign();
+      else if (action === 'percent') handlePercent();
+
+      updateDisplay();
+      highlightOp();
+    });
+
+    // ── Keyboard support ───────────────────────────────────────
+    const keyMap = {
+      '0':'digit:0','1':'digit:1','2':'digit:2','3':'digit:3','4':'digit:4',
+      '5':'digit:5','6':'digit:6','7':'digit:7','8':'digit:8','9':'digit:9',
+      '.':'decimal',',':'decimal',
+      '+':'op:+', '-':'op:−', '*':'op:×', '/':'op:÷',
+      'Enter':'equals','=':'equals',
+      'Escape':'clear','Backspace':'backspace',
+      '%':'percent'
+    };
+
+    document.addEventListener('keydown', e => {
+      const mapped = keyMap[e.key];
+      if (!mapped) return;
+      if (e.key === '/') e.preventDefault();
+
+      const [action, param] = mapped.split(':');
+
+      if      (action === 'digit')    handleDigit(param);
+      else if (action === 'decimal')  handleDecimal();
+      else if (action === 'op')       handleOp(param);
+      else if (action === 'equals')   handleEquals();
+      else if (action === 'clear')    handleClear();
+      else if (action === 'percent')  handlePercent();
+      else if (action === 'backspace') {
+        if (state.justEvaled || state.current === 'Error') { state.current = '0'; state.justEvaled = false; }
+        else if (state.current.length > 1) state.current = state.current.slice(0, -1);
+        else state.current = '0';
+      }
+
+      updateDisplay();
+      highlightOp();
+    });
+
+    // Initial render
+    updateDisplay();
+  </script>
+</body>
+</html>
